@@ -117,9 +117,9 @@ class DetectorAmenazas:
         return X_preprocessed, y
 
     def obtener_informacion_amenazas(self, ip):
-      url = f'https://www.google.com?ip={ip}'  # Reemplaza con la URL real de la API
+      url = f'https://93.184.216.34/reputacion?ip=93.184.216.34'  # Reemplaza con la URL real de la API
       try:
-          respuesta = requests.get(url)
+          respuesta = requests.get(url, verify=True)
           respuesta.raise_for_status()  # Genera una excepción para códigos de estado distintos a 200
           datos_amenaza = respuesta.json()
           return datos_amenaza.get('es_riesgosa', False)  # Maneja la posible falta de la clave
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     detector.iniciar_captura(filtro="net 192.168.1.0/24")
 
     # Ejemplo de consulta de información de amenazas para una IP específica
-    ip_riesgosa = '123.456.789.0'
+    ip_riesgosa = '93.184.216.34'
     es_riesgosa = detector.obtener_informacion_amenazas(ip_riesgosa)
 
     if es_riesgosa:
