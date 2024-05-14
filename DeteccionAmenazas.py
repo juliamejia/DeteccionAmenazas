@@ -117,13 +117,16 @@ class DetectorAmenazas:
         return X_preprocessed, y
 
     def obtener_informacion_amenazas(self, ip):
-    # Consultar sitio web de prueba
-        url = f'https://www.google.com'
-        respuesta = requests.get(url)
-        if respuesta.status_code == 200:
-            print("Conexión exitosa")
-        else:
-            print("Error de conexión")
+      url = f'https://www.google.com?ip={ip}'  # Reemplaza con la URL real de la API
+      try:
+          respuesta = requests.get(url)
+          respuesta.raise_for_status()  # Genera una excepción para códigos de estado distintos a 200
+          datos_amenaza = respuesta.json()
+          return datos_amenaza.get('es_riesgosa', False)  # Maneja la posible falta de la clave
+      except requests.exceptions.RequestException as e:
+          print(f"Error al consultar información de amenazas para {ip}: {e}")
+          return False  # O cualquier valor predeterminado para "no encontrado"
+
 
 # Ejemplo de uso:
 if __name__ == "__main__":
