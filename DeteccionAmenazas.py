@@ -1,8 +1,11 @@
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+from sklearn.preprocessing import MinMaxScaler
 from scapy.all import *
 import requests
+import socket
+import struct
 
 class DetectorAmenazas:
     def __init__(self, modelo_archivo):
@@ -41,12 +44,40 @@ class DetectorAmenazas:
         return caracteristicas
 
     def analizar_trafico(self, paquete):
-        # Analizar el paquete y realizar predicción de amenaza
+        # Extraer características del paquete
         datos_ml = self.extraer_caracteristicas(paquete)
+
         if datos_ml:
-            prediccion = self.modelo.predict(np.array([datos_ml]))
-            if prediccion > 0.5:  # Umbral de predicción (ejemplo)
+            # Convertir el diccionario de características en un vector numérico
+            caracteristicas_vector = self.convertir_a_vector(datos_ml)
+
+            # Realizar la predicción de amenaza
+            prediccion = self.modelo.predict(np.array([caracteristicas_vector]))
+            if np.max(prediccion) > 0.5:  # Umbral de predicción (ejemplo)
                 self.tomar_accion(paquete, 'malicioso')
+                
+
+    def convertir_a_vector(self, datos_ml):
+        # Definir el orden de las características para garantizar consistencia
+        orden_caracteristicas = ['src_ip', 'dst_ip', 'tcp_sport', 'tcp_dport', 'udp_sport', 'udp_dport', 'protocolo']
+
+        # Crear un vector numérico con características ordenadas
+        caracteristicas_vector = []
+        for caracteristica in orden_caracteristicas:
+            if caracteristica in datos_ml:
+                valor = datos_ml[caracteristica]
+                if caracteristica == 'protocolo':
+                    valor = 1 if valor == 'TCP' else 0  # Codificar 'TCP' como 1 y 'UDP' como 0
+                elif caracteristica in ['src_ip', 'dst_ip']:
+                    valor = struct.unpack("!I", socket.inet_aton(valor))[0]  # Convertir dirección IP a entero de 32 bits
+                else:
+                    valor = int(valor)  # Convertir a int
+            else:
+                valor = 0  # Valor por defecto para características faltantes
+
+            caracteristicas_vector.append(valor)
+
+        return caracteristicas_vector
 
     def tomar_accion(self, paquete, tipo):
         # Tomar acción apropiada según el tipo de amenaza detectada
@@ -71,21 +102,28 @@ class DetectorAmenazas:
         # Convertir etiquetas a valores numéricos
         y = np.where(y == 'malicioso', 1, 0)
 
-        # Normalizar características (opcional, dependiendo del tipo de datos)
-        X_normalized = (X - X.min()) / (X.max() - X.min())
+        # Convertir X a una matriz de numpy y manejar valores faltantes
+        X_numeric = X.select_dtypes(include=[np.number])
+        if not X_numeric.empty:
+            scaler = MinMaxScaler()
+            X_normalized = pd.DataFrame(scaler.fit_transform(X_numeric.fillna(0)), columns=X_numeric.columns)
+        else:
+            X_normalized = pd.DataFrame()
 
-        return X_normalized, y
+        # Manejar características no numéricas
+        X_non_numeric = X.select_dtypes(exclude=[np.number])
+        X_preprocessed = pd.concat([X_normalized, X_non_numeric], axis=1)
+
+        return X_preprocessed, y
 
     def obtener_informacion_amenazas(self, ip):
-        # Consultar servicios de reputación de IP
-        url = f'https://api.example.com/reputacion?ip={ip}'
+    # Consultar sitio web de prueba
+        url = f'https://www.google.com'
         respuesta = requests.get(url)
-        datos_amenaza = respuesta.json()
-
-        # Analizar los datos de amenaza
-        es_riesgosa = datos_amenaza.get('es_riesgosa', False)
-
-        return es_riesgosa
+        if respuesta.status_code == 200:
+            print("Conexión exitosa")
+        else:
+            print("Error de conexión")
 
 # Ejemplo de uso:
 if __name__ == "__main__":
